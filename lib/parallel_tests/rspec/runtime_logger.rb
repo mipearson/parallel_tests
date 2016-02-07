@@ -5,6 +5,7 @@ class ParallelTests::RSpec::RuntimeLogger < ParallelTests::RSpec::LoggerBase
   def initialize(*args)
     super
     @example_times = Hash.new(0)
+    @example_process_times = {}
     @group_nesting = 0 unless RSPEC_1
   end
 
@@ -26,6 +27,8 @@ class ParallelTests::RSpec::RuntimeLogger < ParallelTests::RSpec::LoggerBase
   else
     def example_group_started(example_group)
       @time = ParallelTests.now if @group_nesting == 0
+      @ptime = Process.times if @group_nesting == 0
+
       @group_nesting += 1
       super
     end
@@ -35,6 +38,12 @@ class ParallelTests::RSpec::RuntimeLogger < ParallelTests::RSpec::LoggerBase
       if @group_nesting == 0
         path = (RSPEC_3 ? notification.group.file_path : notification.file_path)
         @example_times[path] += ParallelTests.now - @time
+        now = Process.times
+        @example_process_times[path] ||= [0,0,0,0]
+        @example_process_times[path][0] += now.utime - @ptime.utime
+        @example_process_times[path][1] += now.stime - @ptime.stime
+        @example_process_times[path][2] += now.cutime - @ptime.cutime
+        @example_process_times[path][3] += now.cstime - @ptime.cstime
       end
       super if defined?(super)
     end
@@ -51,7 +60,9 @@ class ParallelTests::RSpec::RuntimeLogger < ParallelTests::RSpec::LoggerBase
     lock_output do
       @example_times.each do |file, time|
         relative_path = file.sub(/^#{Regexp.escape Dir.pwd}\//,'').sub(/^\.\//, "")
-        @output.puts "#{relative_path}:#{time > 0 ? time : 0}"
+        ptime = @example_process_times[file]
+        total = ptime[0] + ptime[1] + ptime[2] + ptime[3]
+        @output.puts "#{relative_path}:#{time > 0 ? time : 0} #{total} #{ptime.join(' ')}"
       end
     end
     @output.flush
