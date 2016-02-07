@@ -62,7 +62,7 @@ class ParallelTests::RSpec::RuntimeLogger < ParallelTests::RSpec::LoggerBase
         relative_path = file.sub(/^#{Regexp.escape Dir.pwd}\//,'').sub(/^\.\//, "")
         ptime = @example_process_times[file]
         total = ptime[0] + ptime[1] + ptime[2] + ptime[3]
-        @output.puts "#{relative_path}:#{time > 0 ? time : 0} #{total} #{ptime.join(' ')}"
+        @output.printf "%s %0.2f %0.2f %0.2f %0.2f %0.2f %0.2f\n", relative_path, time, total, *ptime
       end
     end
     @output.flush
